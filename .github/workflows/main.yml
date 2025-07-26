@@ -1,0 +1,28 @@
+name: Deploy Next.js SSR (Self-hosted)
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: self-hosted
+
+    steps:
+      - name: Checkout do código
+        uses: actions/checkout@v3
+
+      - name: Instalar dependências
+        run: npm install
+
+      - name: Build do Next.js
+        run: npm run build
+
+      - name: Reiniciar app com PM2
+        run: |
+          if pm2 list | grep -q my-next-app; then
+            pm2 restart my-next-app
+          else
+            pm2 start npm --name "my-next-app" -- run start
+            pm2 save
+          fi
