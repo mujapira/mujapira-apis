@@ -7,23 +7,25 @@ on:
 jobs:
   deploy:
     runs-on: self-hosted
-
     steps:
       - name: Checkout do código
         uses: actions/checkout@v3
 
       - name: Instalar dependências
         run: npm install
+        working-directory: ${{ github.workspace }}
 
       - name: Build do Next.js
         run: npm run build
+        working-directory: ${{ github.workspace }}
 
       - name: Reiniciar app com PM2
         working-directory: ${{ github.workspace }}
         run: |
+          # tenta reiniciar, se não existir inicia do zero
           if pm2 list | grep -q my-next-app; then
             pm2 restart my-next-app
           else
             pm2 start npm --name "my-next-app" -- start
-            pm2 save
           fi
+          pm2 save
