@@ -19,10 +19,11 @@ jobs:
         run: npm run build
 
       - name: Reiniciar app com PM2
+        working-directory: ${{ github.workspace }}
         run: |
           if pm2 list | grep -q my-next-app; then
             pm2 restart my-next-app
           else
-            pm2 start npm --name "my-next-app" -- run start
+            pm2 start npm --name "my-next-app" -- start
             pm2 save
           fi
