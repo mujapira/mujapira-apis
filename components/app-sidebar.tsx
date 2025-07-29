@@ -39,8 +39,7 @@ const data = {
   teams: [
     {
       name: "Mujapira",
-      logo: Banana,
-      plan: "Central de API's e mais",
+      plan: "Developer Hub",
     },
   ],
   navMain: [

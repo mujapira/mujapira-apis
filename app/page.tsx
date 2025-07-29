@@ -18,7 +18,7 @@ export default function Home() {
         </header>
 
         <div className="flex flex-1 flex-col gap-6 p-4 pt-0">
-          <h1 className="text-3xl font-bold">Bem-vindo ao Mujapira.com!</h1>
+          <h1 className="text-3xl font-bold">Bem-vindo!</h1>
 
           <p className="text-base leading-relaxed text-muted-foreground">
             Este site é o hub da minha jornada como desenvolvedor full-stack: uma vitrine dos meus projetos e também um laboratório para testar ideias, padrões de código, UI/UX e boas práticas em tempo real.
