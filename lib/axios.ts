@@ -2,7 +2,7 @@ import { refreshRequest } from "@/services/auth";
 import axios, { AxiosError } from "axios";
 
 export const apiGateway = axios.create({
-  baseURL: "https://api.mujapira.com",
+  baseURL: "https://api.mujapira.com/",
   withCredentials: true, // envia o cookie HttpOnly de refresh
 });
 
