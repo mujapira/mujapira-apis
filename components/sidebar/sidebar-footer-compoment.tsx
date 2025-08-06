@@ -34,12 +34,17 @@ import {
 import { useAuth } from "@/contexts/auth/authContext"
 import { AuthModal } from "../auth-modal"
 import { useEffect, useRef, useState } from "react"
+import { logoutRequest } from "@/services/auth"
 
 export function SidebarFooterComponent() {
   const { isMobile } = useSidebar();
   const { user } = useAuth();
   const [authOpen, setAuthOpen] = useState(false);
   const loginButtonRef = useRef<HTMLButtonElement | null>(null);
+
+  const logout = async () => {
+    await logoutRequest();
+  }
 
   const getUserFallBack = () => {
     if (user) {
@@ -76,11 +81,11 @@ export function SidebarFooterComponent() {
       return (
         <>
           <Avatar className="h-8 w-8 rounded-lg">
-            <AvatarFallback className="rounded-lg">
+            <AvatarFallback className="rounded-lg group-hover:bg-sidebar">
               <UserRound className="size-4" />
             </AvatarFallback>
           </Avatar>
-          <div className="grid flex-1 text-left text-sm ">
+          <div className="grid flex-1 text-left text-sm">
             <span className="truncate font-medium">Login</span>
           </div>
           <ClipboardPaste className="ml-auto size-4" />
@@ -99,7 +104,7 @@ export function SidebarFooterComponent() {
                 <SidebarMenuButton
                   size="lg"
                   ref={(el: any) => (loginButtonRef.current = el)}
-                  className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
+                  className="group data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground "
                 >
                   {loginButtonContent()}
                 </SidebarMenuButton>
@@ -136,7 +141,7 @@ export function SidebarFooterComponent() {
                   </DropdownMenuItem>
                 </DropdownMenuGroup>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem>
+                <DropdownMenuItem onClick={() => logout()}>
                   <LogOut />
                   Sair
                 </DropdownMenuItem>

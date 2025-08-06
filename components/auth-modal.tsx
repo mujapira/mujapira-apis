@@ -168,8 +168,7 @@ function RegisterForm({ onSuccess }: FormProps) {
             await apiGateway.post("/users", {
                 email,
                 password,
-                name,
-                isAdmin: false,
+                name
             });
             // login automático
             await login(email, password);

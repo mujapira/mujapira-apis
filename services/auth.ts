@@ -14,18 +14,16 @@ export interface RefreshResponse {
 
 // login: obtém access + refresh tokens
 export async function loginRequest(email: string, pass: string) {
-  const { data } = await apiGateway.post("/auth/login", { email, password: pass });
+  const { data } = await apiGateway.post("/auth/login", {
+    email,
+    password: pass,
+  });
   return data as { accessToken: string };
 }
 
 export async function refreshRequest() {
   const { data } = await apiGateway.post("/auth/refresh", null);
   return data as { accessToken: string };
-}
-
-export async function fetchCurrentUser(): Promise<User> {
-  const { data } = await apiGateway.get<User>("/users/me");
-  return data;
 }
 
 export async function logoutRequest(): Promise<void> {

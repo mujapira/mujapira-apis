@@ -13,11 +13,22 @@ import type { AxiosInstance, AxiosError, AxiosRequestConfig } from "axios";
 import {
     loginRequest,
     refreshRequest,
-    fetchCurrentUser,
     logoutRequest,
 } from "@/services/auth";
 import { apiGateway } from "@/lib/axios";
-import type { AuthContextData, User } from "./types";
+import { User } from "./types";
+import { fetchCurrentUser } from "@/services/user";
+
+export interface AuthContextData {
+  accessToken: string | null;
+  user: User | null;
+  isAuthenticated: boolean;
+  login: (email: string, password: string) => Promise<void>;
+  logout: () => void;
+  secureFetch: <T = any>(url: string, config?: any) => Promise<T>;
+  isInitializing: boolean;
+}
+
 
 const DEBUG = process.env.NEXT_PUBLIC_AUTH_LOG ?? false;
 
@@ -162,8 +173,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             login,
             logout,
             secureFetch,
+            isInitializing,
         }),
-        [accessToken, user, login, logout, secureFetch]
+        [accessToken, user, login, logout, secureFetch, isInitializing]
     );
 
     return (
