@@ -1,31 +1,35 @@
-// services/auth.ts
 import { apiGateway } from "@/lib/axios";
-import type { User } from "@/contexts/auth/types";
+import { AxiosResponse } from "axios";
 
 export interface LoginResponse {
   accessToken: string;
-  refreshToken: string;
 }
 
 export interface RefreshResponse {
   accessToken: string;
-  refreshToken: string;
+  tokenType: string;
+  expiresIn: number;
 }
 
-// login: obtém access + refresh tokens
-export async function loginRequest(email: string, pass: string) {
-  const { data } = await apiGateway.post("/auth/login", {
-    email,
-    password: pass,
-  });
-  return data as { accessToken: string };
+export async function _login(email: string, pass: string) {
+  const axiosFetch: AxiosResponse<LoginResponse> = await apiGateway.post(
+    "/auth/login",
+    {
+      email,
+      password: pass,
+    }
+  );
+  return axiosFetch.data;
 }
 
-export async function refreshRequest() {
-  const { data } = await apiGateway.post("/auth/refresh", null);
-  return data as { accessToken: string };
+export async function _refresh() {
+  const axiosFetch: AxiosResponse<RefreshResponse> = await apiGateway.post(
+    "/auth/refresh",
+    null
+  );
+  return axiosFetch.data;
 }
 
-export async function logoutRequest(): Promise<void> {
+export async function _logout(): Promise<void> {
   await apiGateway.post("/auth/logout");
 }

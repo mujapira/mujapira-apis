@@ -19,7 +19,7 @@ import {
     TabsTrigger,
     TabsContent,
 } from "@/components/ui/tabs";
-import { useAuth } from "@/contexts/auth/authContext";
+import { useAuth } from "@/contexts/auth/auth-context";
 import { apiGateway } from "@/lib/axios";
 
 type Tab = "login" | "register";
@@ -79,7 +79,7 @@ interface LoginInputs {
 }
 
 function LoginForm({ onSuccess }: FormProps) {
-    const { login } = useAuth();
+    const { signIn } = useAuth();
     const {
         register,
         handleSubmit,
@@ -89,7 +89,7 @@ function LoginForm({ onSuccess }: FormProps) {
 
     const onSubmit: SubmitHandler<LoginInputs> = async (data) => {
         try {
-            await login(data.email, data.password);
+            await signIn(data.email, data.password);
             onSuccess();
         } catch {
             setError("password", {
@@ -142,7 +142,7 @@ interface RegisterInputs {
 }
 
 function RegisterForm({ onSuccess }: FormProps) {
-    const { login } = useAuth();
+    const { signIn } = useAuth();
     const {
         register,
         handleSubmit,
@@ -171,7 +171,7 @@ function RegisterForm({ onSuccess }: FormProps) {
                 name
             });
             // login automático
-            await login(email, password);
+            await signIn(email, password);
             onSuccess();
         } catch {
             setError("email", {

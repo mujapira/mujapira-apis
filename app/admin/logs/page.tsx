@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react';
 import { apiGateway } from '@/lib/axios';
-import { useAuth } from '@/contexts/auth/authContext';
+import { useAuth } from '@/contexts/auth/auth-context';
 import { User } from '@/contexts/auth/types';
 
 export interface LogEntry {
@@ -46,17 +46,17 @@ export default function LogViewer() {
     const [error, setError] = useState<string | null>(null);
     const [params, setParams] = useState<LogQueryParams>({ limit: 50, skip: 0 });
 
-    const { isInitializing } = useAuth()
+    const { currentUser } = useAuth()
 
     useEffect(() => {
         setLoading(true);
-        if (isInitializing) return;
+        if (!currentUser) return;
         fetchLogs(params)
             .then(setLogs)
             .catch(err => setError(err.message || 'Erro ao buscar logs'))
             .finally(() => setLoading(false));
 
-    }, [params, isInitializing]);
+    }, [params, currentUser]);
 
     const fetchUsers = async () => {
         const { data } = await apiGateway.get<User[]>("/users");

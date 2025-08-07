@@ -1,19 +1,17 @@
 import { apiGateway } from "@/lib/axios";
 import type { User } from "@/contexts/auth/types";
+import { AxiosResponse } from "axios";
 
-export async function fetchCurrentUser(): Promise<User> {
-  const { data } = await apiGateway.get<User>("/users/me");
-  return data;
+export async function _getCurrentUser(): Promise<User> {
+  const axiosResponse: AxiosResponse<User> = await apiGateway.get<User>(
+    "/users/me"
+  );
+  return axiosResponse.data;
 }
 
-//   [HttpGet]
-//   public async Task<ActionResult<IEnumerable<UserDto>>> GetAll()
-//   {
-//       var users = await _userService.GetAll();
-//       return Ok(users);
-//   }
-
-export async function fetchAllUsers(): Promise<User[]> {
-  const { data } = await apiGateway.get<User[]>("/users");
-  return data;
+export async function _getAllUsers(): Promise<User[]> {
+  const axiosResponse: AxiosResponse<User[]> = await apiGateway.get<User[]>(
+    "/users"
+  );
+  return axiosResponse.data;
 }

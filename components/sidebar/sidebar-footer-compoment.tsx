@@ -31,24 +31,25 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar"
-import { useAuth } from "@/contexts/auth/authContext"
+import { useAuth } from "@/contexts/auth/auth-context"
 import { AuthModal } from "../auth-modal"
 import { useEffect, useRef, useState } from "react"
-import { logoutRequest } from "@/services/auth"
+
 
 export function SidebarFooterComponent() {
   const { isMobile } = useSidebar();
-  const { user } = useAuth();
+  const { signOut, currentUser } = useAuth();
   const [authOpen, setAuthOpen] = useState(false);
   const loginButtonRef = useRef<HTMLButtonElement | null>(null);
 
+
   const logout = async () => {
-    await logoutRequest();
+    await signOut();
   }
 
   const getUserFallBack = () => {
-    if (user) {
-      const names = user.name.split(" ");
+    if (currentUser) {
+      const names = currentUser.name.split(" ");
       return names.length > 1
         ? `${names[0][0]}${names[names.length - 1][0]}`
         : names[0][0];
@@ -62,7 +63,7 @@ export function SidebarFooterComponent() {
   }, [authOpen]);
 
   const loginButtonContent = () => {
-    if (user) {
+    if (currentUser) {
       return (
         <>
           <Avatar className="h-8 w-8 rounded-lg">
@@ -71,8 +72,8 @@ export function SidebarFooterComponent() {
             </AvatarFallback>
           </Avatar>
           <div className="grid flex-1 text-left text-sm leading-tight">
-            <span className="truncate font-medium">{user.name ?? "a"}</span>
-            <span className="truncate text-xs">{user.email ?? "a"}</span>
+            <span className="truncate font-medium">{currentUser.name ?? "a"}</span>
+            <span className="truncate text-xs">{currentUser.email ?? "a"}</span>
           </div>
           <ChevronsUpDown className="ml-auto size-4" />
         </>
@@ -98,7 +99,7 @@ export function SidebarFooterComponent() {
     <>
       <SidebarMenu>
         <SidebarMenuItem>
-          {user ? (
+          {currentUser ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <SidebarMenuButton

@@ -1,6 +1,6 @@
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { Separator } from "@radix-ui/react-separator";
-import { AuthProvider } from "@/contexts/auth/authContext";
+import { AuthProvider } from "@/contexts/auth/auth-context";
 import { AppSidebar } from "@/components/sidebar/app-sidebar";
 
 export default function Home() {
