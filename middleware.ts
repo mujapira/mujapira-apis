@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 const SECRET = process.env.JWT_SECRET!;
 const ISSUER = process.env.JWT_ISSUER!;
 const AUDIENCE = process.env.JWT_AUDIENCE!;
-const DEBUG = false;
+const DEBUG = true;
 
 async function tryRefresh(req: NextRequest): Promise<{ accessToken?: string } | null> {
   try {
