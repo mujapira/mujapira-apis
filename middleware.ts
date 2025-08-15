@@ -4,30 +4,37 @@ const SECRET = process.env.JWT_SECRET!;
 const ISSUER = process.env.JWT_ISSUER!;
 const AUDIENCE = process.env.JWT_AUDIENCE!;
 const DEBUG = true;
+const INTERNAL_ORIGIN="http://127.0.0.1:3000"
 
 async function tryRefresh(req: NextRequest): Promise<{ accessToken?: string } | null> {
-  try {
+  // base interno em prod; fallback pro host da request
+  const base =
+    INTERNAL_ORIGIN ??
+    `${req.nextUrl.protocol}//${req.headers.get("host") || req.nextUrl.host}`;
 
-    const res = await fetch(new URL("/api/auth/refresh", req.url), {
+  const url = `${base}/api/auth/refresh`;
+
+  try {
+    const res = await fetch(url, {
       method: "POST",
       headers: {
         "content-type": "application/json",
+        // repassa TODOS os cookies (inclui refresh httpOnly)
         cookie: req.headers.get("cookie") ?? "",
       },
       body: "{}",
-    
     });
 
     if (!res.ok) return null;
     const data = (await res.json().catch(() => ({}))) as { accessToken?: string };
     if (!data?.accessToken) return null;
     return { accessToken: data.accessToken };
-  } catch (err) {
-    if (DEBUG) console.log("[MW] Erro no refresh:", err);
+  } catch (err: any) {
+    // loga a causa real (ECONNREFUSED/ENOTFOUND/etc.)
+    console.error("[MW] fetch refresh failed:", err?.cause ?? err);
     return null;
   }
 }
-
 // --- middleware ----------------------------------------------------------
 
 export async function middleware(req: NextRequest) {
