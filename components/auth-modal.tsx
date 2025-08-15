@@ -142,7 +142,7 @@ interface RegisterInputs {
 }
 
 function RegisterForm({ onSuccess }: FormProps) {
-    const { signIn } = useAuth();
+    const { signIn, registerUser } = useAuth();
     const {
         register,
         handleSubmit,
@@ -165,12 +165,7 @@ function RegisterForm({ onSuccess }: FormProps) {
         }
 
         try {
-            await apiGateway.post("/users", {
-                email,
-                password,
-                name
-            });
-            // login automático
+            await registerUser(email, password, name);
             await signIn(email, password);
             onSuccess();
         } catch {

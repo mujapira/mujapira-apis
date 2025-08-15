@@ -1,13 +1,22 @@
+// lib/auth-manager.ts
+"use client";
 import { apiGateway } from "@/lib/axios";
-import type { User } from "@/contexts/auth/types";
-import { _login, _logout, _refresh } from "@/services/auth";
-import { _getCurrentUser } from "@/services/user";
+
+export type User = {
+  id: string;
+  email: string;
+  name: string;
+  isAdmin: boolean;
+};
 
 class AuthManager {
-  private accessToken: string | null = null;
   private currentUser: User | null = null;
   private initializing = true;
   private listeners = new Set<() => void>();
+
+  private isRefreshing = false;
+  private refreshPromise: Promise<void> | null = null;
+
   public hydrationPromise: Promise<void>;
 
   constructor() {
@@ -16,44 +25,53 @@ class AuthManager {
   }
 
   private setupInterceptors() {
-    apiGateway.interceptors.request.use((config) => {
-      if (this.accessToken) {
-        config.headers = config.headers ?? {};
-        config.headers.Authorization = `Bearer ${this.accessToken}`;
-      }
-      return config;
-    });
-
     apiGateway.interceptors.response.use(
       (res) => res,
       async (err) => {
-        const orig = err.config;
-        if (err.response?.status === 401 && orig && !orig._retry) {
-          orig._retry = true;
-          try {
-            const { accessToken: refreshed } = await _refresh();
-            this.accessToken = refreshed;
-            orig.headers.Authorization = `Bearer ${refreshed}`;
-            this.emit();
-            return apiGateway.request(orig);
-          } catch {
-            await this.signOut();
-          }
+        const orig = err.config as any;
+
+        if (!err.response || err.response.status !== 401) {
+          return Promise.reject(err);
         }
-        return Promise.reject(err);
+
+        if (!orig || orig._retry) {
+          return Promise.reject(err);
+        }
+        orig._retry = true;
+
+        try {
+          await this.refreshSingleFlight();
+          return apiGateway.request(orig);
+        } catch {
+          await this.signOut();
+          return Promise.reject(err);
+        }
       }
     );
   }
 
+  private async refreshSingleFlight(): Promise<void> {
+    if (this.isRefreshing && this.refreshPromise) {
+      return this.refreshPromise;
+    }
+    this.isRefreshing = true;
+    this.refreshPromise = this.refresh()
+      .catch((e) => {
+        throw e;
+      })
+      .finally(() => {
+        this.isRefreshing = false;
+        this.refreshPromise = null;
+      });
+
+    return this.refreshPromise;
+  }
+
   private async initialize() {
     try {
-      const { accessToken } = await _refresh();
-      this.accessToken = accessToken;
-
-      const data = await _getCurrentUser();
-      this.currentUser = data;
+      await this.refresh();
+      this.currentUser = await this.fetchMe();
     } catch {
-      this.accessToken = null;
       this.currentUser = null;
     } finally {
       this.initializing = false;
@@ -61,17 +79,34 @@ class AuthManager {
     }
   }
 
+  private async login(email: string, password: string): Promise<void> {
+    await apiGateway.post("/auth/login", { email, password }, { withCredentials: true });
+  }
+
+  private async refresh(): Promise<void> {
+    await apiGateway.post("/auth/refresh", {}, { withCredentials: true });
+  }
+
+  private async logout(): Promise<void> {
+    await apiGateway.post("/auth/logout", {}, { withCredentials: true });
+  }
+
+  private async fetchMe(): Promise<User> {
+    const { data } = await apiGateway.get<User>("/users/me", { withCredentials: true });
+    return data;
+  }
+
+  private emit() {
+    this.listeners.forEach((l) => l());
+  }
+
   subscribe(listener: () => void) {
     this.listeners.add(listener);
     return () => this.listeners.delete(listener);
   }
 
-  private emit() {
-    this.listeners.forEach((listener) => listener());
-  }
-
-  getToken() {
-    return this.accessToken;
+  getToken(): null {
+    return null;
   }
 
   getUser() {
@@ -83,18 +118,26 @@ class AuthManager {
   }
 
   async signIn(email: string, password: string) {
-    const { accessToken } = await _login(email, password);
-    this.accessToken = accessToken;
-    const response = await apiGateway.get<User>("/users/me");
-    this.currentUser = response.data;
+    await this.login(email, password);
+    this.currentUser = await this.fetchMe();
     this.emit();
   }
 
   async signOut() {
-    await _logout();
-    this.accessToken = null;
-    this.currentUser = null;
-    this.emit();
+    try {
+      await this.logout();
+    } finally {
+      this.currentUser = null;
+      this.emit();
+    }
+  }
+
+  async registerUser(email: string, password: string, name: string) {
+    await apiGateway.post(
+      "/users/register",
+      { email, password, name },
+      { withCredentials: true }
+    );
   }
 }
 

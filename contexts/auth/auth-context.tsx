@@ -7,6 +7,7 @@ interface AuthContextProps {
     currentUser: ReturnType<typeof authManager.getUser>;
     isAuthenticated: boolean;
     signIn: (email: string, password: string) => Promise<void>;
+    registerUser: (email: string, password: string, name: string) => Promise<void>;
     signOut: () => Promise<void>;
 }
 
@@ -36,6 +37,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         isAuthenticated: Boolean(currentUser),
         signIn: authManager.signIn.bind(authManager),
         signOut: authManager.signOut.bind(authManager),
+        registerUser: authManager.registerUser.bind(authManager),
     };
 
     return <AuthContext.Provider value={contextValue}>{children}</AuthContext.Provider>;

@@ -15,3 +15,7 @@ export async function _getAllUsers(): Promise<User[]> {
   );
   return axiosResponse.data;
 }
+
+export async function _promoteUserByEmail(email: string): Promise<void> {
+  await apiGateway.post("/users/promoteByEmail", { email });
+}

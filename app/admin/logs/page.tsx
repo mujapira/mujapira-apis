@@ -65,9 +65,6 @@ export default function LogViewer() {
 
     return (
         <div className="p-4">
-            <button onClick={() => fetchLogs(params)}>aaaaaa</button>
-            <button onClick={() => fetchUsers()}>fetchusers</button>
-
             <h2 className="text-xl font-semibold mb-4">Logs</h2>
             {error && <div className="text-red-600 mb-2">{error}</div>}
             {loading ? (

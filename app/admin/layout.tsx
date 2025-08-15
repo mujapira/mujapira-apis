@@ -28,15 +28,6 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
 
     return (
         <div className="flex">
-            {/* opcional: um sidebar/admin nav aqui */}
-            <aside className="w-60 border-r p-4">
-                <h2 className="font-bold mb-4">{currentUser?.name}</h2>
-                <ul className="space-y-2">
-                    <li><a href="/admin">Dashboard</a></li>
-                    <li><a href="/admin/users">Usuários</a></li>
-                    <li><a href="/admin/logs">Logs</a></li>
-                </ul>
-            </aside>
             <main className="flex-1 p-6">{children}</main>
         </div>
     );
