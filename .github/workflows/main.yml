@@ -10,6 +10,16 @@ jobs:
     steps:
       - name: Checkout do código
         uses: actions/checkout@v3
+      
+      - name: Criar .env para build e runtime
+        working-directory: ${{ github.workspace }}
+        run: |
+          cat > .env <<'EOF'
+          NODE_ENV=production
+          JWT_SECRET=${{ secrets.JWT_SECRET }}
+          JWT_ISSUER=${{ secrets.JWT_ISSUER }}
+          JWT_AUDIENCE=${{ secrets.JWT_AUDIENCE }}
+          EOF
 
       - name: Instalar dependências
         run: npm install
