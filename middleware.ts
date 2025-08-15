@@ -115,50 +115,39 @@ export const config = {
 
 // --- utils ---------------------------------------------------------------
 
-function b64urlToArrayBuffer(input: string): ArrayBuffer {
+function b64urlToBytes(input: string): Uint8Array {
   let b64 = input.replace(/-/g, "+").replace(/_/g, "/");
   const pad = b64.length % 4;
   if (pad) b64 += "=".repeat(4 - pad);
-
   const bin = atob(b64);
   const bytes = new Uint8Array(bin.length);
   for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-  return bytes.buffer; // ArrayBuffer cru evita incompatibilidades de "buffer"
+  return bytes; // <- retorna Uint8Array, NUNCA .buffer
 }
 
 async function verifyJwtHS256(token: string) {
   const [h64, p64, s64] = token.split(".");
   if (!h64 || !p64 || !s64) throw new Error("Formato JWT inválido");
 
-  const header = JSON.parse(new TextDecoder().decode(b64urlToArrayBuffer(h64)));
-  const payload = JSON.parse(
-    new TextDecoder().decode(b64urlToArrayBuffer(p64))
-  );
-  const signature = b64urlToArrayBuffer(s64);
+  const header = JSON.parse(new TextDecoder().decode(b64urlToBytes(h64)));
+  const payload = JSON.parse(new TextDecoder().decode(b64urlToBytes(p64)));
+  const signature = new Uint8Array(Uint8Array.from(b64urlToBytes(s64)).buffer); // <- Uint8Array from ArrayBuffer
 
   if (header.alg !== "HS256") throw new Error("Algoritmo inválido");
 
   const key = await crypto.subtle.importKey(
     "raw",
-    new TextEncoder().encode(SECRET),
+    new TextEncoder().encode(SECRET), // Uint8Array ok
     { name: "HMAC", hash: "SHA-256" },
     false,
     ["verify"]
   );
 
-  const ok = await crypto.subtle.verify(
-    "HMAC",
-    key,
-    signature,
-    new TextEncoder().encode(`${h64}.${p64}`)
-  );
+  const data = new TextEncoder().encode(`${h64}.${p64}`); // <- Uint8Array
+  const ok = await crypto.subtle.verify({ name: "HMAC" }, key, signature.buffer, data.buffer);
   if (!ok) throw new Error("Assinatura inválida");
 
   const now = Math.floor(Date.now() / 1000);
-  // tolerância opcional de 30s, se quiser:
-  // const skew = 30;
-  // if (payload.exp && now >= payload.exp - skew) throw new Error("exp");
-
   if (payload.exp && now >= payload.exp) throw new Error("exp");
   if (payload.nbf && now < payload.nbf) throw new Error("nbf");
   if (ISSUER && payload.iss !== ISSUER) throw new Error("iss");
