@@ -1,22 +1,27 @@
 import { NextRequest, NextResponse } from "next/server";
-import { _refresh } from "./services/auth";
 
 const SECRET = process.env.JWT_SECRET!;
 const ISSUER = process.env.JWT_ISSUER!;
 const AUDIENCE = process.env.JWT_AUDIENCE!;
-const DEBUG = true;
+const DEBUG = false;
 
-async function tryRefresh(
-  req: NextRequest
-): Promise<{ accessToken?: string } | null> {
+async function tryRefresh(req: NextRequest): Promise<{ accessToken?: string } | null> {
   try {
-    const res = await _refresh();
 
-    if (!res) return null;
+    const res = await fetch(new URL("/api/auth/refresh", req.url), {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        cookie: req.headers.get("cookie") ?? "",
+      },
+      body: "{}",
+    
+    });
 
-    if (!res?.accessToken) return null;
-
-    return { accessToken: res.accessToken };
+    if (!res.ok) return null;
+    const data = (await res.json().catch(() => ({}))) as { accessToken?: string };
+    if (!data?.accessToken) return null;
+    return { accessToken: data.accessToken };
   } catch (err) {
     if (DEBUG) console.log("[MW] Erro no refresh:", err);
     return null;
