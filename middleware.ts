@@ -46,8 +46,8 @@ export async function middleware(req: NextRequest) {
   if (DEBUG) console.log("[MW] Req:", pathname);
 
   const accessCookie = req.cookies.get("accessToken")?.value;
-  
-  if (DEBUG) console.log("[MW] cookies:", req.headers.get("cookie"));
+
+  if (DEBUG) console.log("[MW] cookies:", req.cookies);
 
   const redirectHome = () => {
     const url = req.nextUrl.clone();
