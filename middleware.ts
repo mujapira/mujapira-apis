@@ -4,9 +4,11 @@ const SECRET = process.env.JWT_SECRET!;
 const ISSUER = process.env.JWT_ISSUER!;
 const AUDIENCE = process.env.JWT_AUDIENCE!;
 const DEBUG = true;
-const INTERNAL_ORIGIN="http://127.0.0.1:3000"
+const INTERNAL_ORIGIN = "http://127.0.0.1:3000";
 
-async function tryRefresh(req: NextRequest): Promise<{ accessToken?: string } | null> {
+async function tryRefresh(
+  req: NextRequest
+): Promise<{ accessToken?: string } | null> {
   // base interno em prod; fallback pro host da request
   const base =
     INTERNAL_ORIGIN ??
@@ -26,7 +28,9 @@ async function tryRefresh(req: NextRequest): Promise<{ accessToken?: string } | 
     });
 
     if (!res.ok) return null;
-    const data = (await res.json().catch(() => ({}))) as { accessToken?: string };
+    const data = (await res.json().catch(() => ({}))) as {
+      accessToken?: string;
+    };
     if (!data?.accessToken) return null;
     return { accessToken: data.accessToken };
   } catch (err: any) {
@@ -42,6 +46,8 @@ export async function middleware(req: NextRequest) {
   if (DEBUG) console.log("[MW] Req:", pathname);
 
   const accessCookie = req.cookies.get("accessToken")?.value;
+  
+  if (DEBUG) console.log("[MW] cookies:", req.headers.get("cookie"));
 
   const redirectHome = () => {
     const url = req.nextUrl.clone();
