@@ -122,7 +122,7 @@ function b64urlToBytes(input: string): Uint8Array {
   const bin = atob(b64);
   const bytes = new Uint8Array(bin.length);
   for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-  return bytes; // <- retorna Uint8Array, NUNCA .buffer
+  return bytes;
 }
 
 async function verifyJwtHS256(token: string) {
@@ -131,20 +131,26 @@ async function verifyJwtHS256(token: string) {
 
   const header = JSON.parse(new TextDecoder().decode(b64urlToBytes(h64)));
   const payload = JSON.parse(new TextDecoder().decode(b64urlToBytes(p64)));
-  const signature = new Uint8Array(Uint8Array.from(b64urlToBytes(s64)).buffer); // <- Uint8Array from ArrayBuffer
+
+  const signature: Uint8Array = b64urlToBytes(s64);
+  const data: Uint8Array = new TextEncoder().encode(`${h64}.${p64}`);
 
   if (header.alg !== "HS256") throw new Error("Algoritmo inválido");
 
   const key = await crypto.subtle.importKey(
     "raw",
-    new TextEncoder().encode(SECRET), // Uint8Array ok
+    new TextEncoder().encode(SECRET),
     { name: "HMAC", hash: "SHA-256" },
     false,
     ["verify"]
   );
 
-  const data = new TextEncoder().encode(`${h64}.${p64}`); // <- Uint8Array
-  const ok = await crypto.subtle.verify({ name: "HMAC" }, key, signature.buffer, data.buffer);
+  const ok = await crypto.subtle.verify(
+    "HMAC",
+    key,
+    signature as unknown as BufferSource,
+    data as unknown as BufferSource
+  );
   if (!ok) throw new Error("Assinatura inválida");
 
   const now = Math.floor(Date.now() / 1000);
