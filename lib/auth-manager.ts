@@ -1,6 +1,5 @@
-// lib/auth-manager.ts
 "use client";
-import { apiGateway } from "@/lib/axios";
+import { apiGateway, authHttp } from "@/lib/axios";
 
 export type User = {
   id: string;
@@ -25,24 +24,35 @@ class AuthManager {
   }
 
   private setupInterceptors() {
+    const isAuthRoute = (url?: string) => {
+      if (!url) return false;
+      return (
+        url.includes("/auth/refresh") ||
+        url.includes("/auth/login") ||
+        url.includes("/auth/logout")
+      );
+    };
+
     apiGateway.interceptors.response.use(
       (res) => res,
       async (err) => {
-        const orig = err.config as any;
+        const orig = err?.config as any;
+        const status = err?.response?.status;
+        const url = orig?.url as string | undefined;
 
-        if (!err.response || err.response.status !== 401) {
+        // Sem config, não é 401, já foi retry, ou é rota de auth → não tenta refresh
+        if (!orig || status !== 401 || orig._retry || isAuthRoute(url)) {
           return Promise.reject(err);
         }
 
-        if (!orig || orig._retry) {
-          return Promise.reject(err);
-        }
         orig._retry = true;
 
         try {
           await this.refreshSingleFlight();
+          // tenta novamente a chamada original
           return apiGateway.request(orig);
         } catch {
+          // refresh falhou → encerra sessão localmente
           await this.signOut();
           return Promise.reject(err);
         }
@@ -55,6 +65,7 @@ class AuthManager {
       return this.refreshPromise;
     }
     this.isRefreshing = true;
+
     this.refreshPromise = this.refresh()
       .catch((e) => {
         throw e;
@@ -69,6 +80,7 @@ class AuthManager {
 
   private async initialize() {
     try {
+      // Tenta obter sessão via refresh e em seguida pegar o usuário
       await this.refresh();
       this.currentUser = await this.fetchMe();
     } catch {
@@ -79,20 +91,22 @@ class AuthManager {
     }
   }
 
+  // ======= chamadas de auth usando o cliente "cru" (sem interceptors) =======
   private async login(email: string, password: string): Promise<void> {
-    await apiGateway.post("/auth/login", { email, password }, { withCredentials: true });
+    await authHttp.post("/auth/login", { email, password });
   }
 
   private async refresh(): Promise<void> {
-    await apiGateway.post("/auth/refresh", {}, { withCredentials: true });
+    await authHttp.post("/auth/refresh", {});
   }
 
   private async logout(): Promise<void> {
-    await apiGateway.post("/auth/logout", {}, { withCredentials: true });
+    await authHttp.post("/auth/logout", {});
   }
+  // ==========================================================================
 
   private async fetchMe(): Promise<User> {
-    const { data } = await apiGateway.get<User>("/users/me", { withCredentials: true });
+    const { data } = await apiGateway.get<User>("/users/me");
     return data;
   }
 
@@ -105,6 +119,7 @@ class AuthManager {
     return () => this.listeners.delete(listener);
   }
 
+  // Mantido para compatibilidade; se não usa token, pode remover do contexto
   getToken(): null {
     return null;
   }
@@ -133,11 +148,7 @@ class AuthManager {
   }
 
   async registerUser(email: string, password: string, name: string) {
-    await apiGateway.post(
-      "/users/register",
-      { email, password, name },
-      { withCredentials: true }
-    );
+    await authHttp.post("/users/register", { email, password, name });
   }
 }
 
