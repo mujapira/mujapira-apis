@@ -2,6 +2,21 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { apiGateway } from '@/lib/axios';
 import { useAuth } from '@/contexts/auth/auth-context';
+import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
+import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
+import { ChevronDown, ChevronLeft, ChevronRight, Download, Filter, LinkIcon, MoreHorizontal, RefreshCw, SlidersHorizontal, Trash2 } from 'lucide-react';
+import { Card, CardContent } from '@/components/ui/card';
+import { Switch } from '@/components/ui/switch';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Separator } from '@/components/ui/separator';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { clampedInterval, formatDatePtBR, getCookie, parseBool, pretty, setCookie, toISOOrEmpty } from '@/utils';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Toggle } from '@/components/ui/toggle';
+import { AnimatePresence, motion } from "framer-motion";
 
 // ===== Types =====
 export interface LogEntry {
@@ -28,7 +43,7 @@ export interface LogQueryParams {
 // ===== Config =====
 const COOKIE_KEY = 'log_filters_v2'; // inclui autoRefresh e intervalSec
 const COOKIE_MAX_AGE = 60 * 60 * 24 * 30;
-const KNOWN_SOURCES = ['AuthService', 'UserService', 'MailService', 'LogService'];
+const KNOWN_SOURCES = ['AuthService', 'UserService', 'MailService'];
 const LEVEL_OPTIONS = ['Trace', 'Debug', 'Info', 'Warn', 'Error', 'Fatal'] as const;
 
 const levelClass: Record<string, string> = {
@@ -39,63 +54,33 @@ const levelClass: Record<string, string> = {
     Error: 'bg-red-100 text-red-700 border-red-200',
     Fatal: 'bg-red-200 text-red-900 border-red-300',
 };
-
 // ===== Utils =====
-function setCookie(name: string, value: string, maxAgeSec: number) {
-    document.cookie = `${name}=${encodeURIComponent(value)}; Max-Age=${maxAgeSec}; Path=/; SameSite=Lax`;
-}
-function getCookie(name: string): string | null {
-    const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
-    return match ? decodeURIComponent(match[2]) : null;
-}
-function toISOOrEmpty(d?: string) {
-    if (!d) return '';
-    const dd = new Date(d);
-    return isNaN(dd.getTime()) ? '' : dd.toISOString();
-}
-function formatDatePtBR(iso: string) {
-    try {
-        return new Date(iso).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'medium' });
-    } catch {
-        return iso;
-    }
-}
-function pretty(obj: any) {
-    try { return JSON.stringify(obj, null, 2); } catch { return String(obj); }
-}
 function useDebounced<T>(value: T, delay = 400) {
     const [v, setV] = useState(value);
     useEffect(() => { const t = setTimeout(() => setV(value), delay); return () => clearTimeout(t); }, [value, delay]);
     return v;
 }
-function parseBool(s: string | null | undefined): boolean | undefined {
-    if (s == null) return undefined;
-    const v = s.trim().toLowerCase();
-    if (['1', 'true', 'yes', 'y', 'on'].includes(v)) return true;
-    if (['0', 'false', 'no', 'n', 'off'].includes(v)) return false;
-    return undefined;
-}
-function clampedInterval(n?: number) {
-    if (!Number.isFinite(n as number)) return 60;
-    const x = Math.max(1, Math.round(n as number));
-    return x;
-}
 
-// ===== Small UI =====
-function Pill({ active, children, onClick }: { active: boolean; children: React.ReactNode; onClick: () => void; }) {
+function Pill({
+    pressed, onPressedChange, children,
+}: { pressed: boolean; onPressedChange: (v: boolean) => void; children: React.ReactNode }) {
     return (
-        <button
-            type="button"
-            onClick={onClick}
-            className={
-                'px-3 py-1 rounded-full border text-sm transition ' +
-                (active ? 'bg-black text-white border-black' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50')
-            }
+        <Toggle
+            pressed={pressed}
+            onPressedChange={onPressedChange}
+            variant="outline"
+            className={cn(
+                "rounded-full px-3",
+                pressed && "bg-primary text-primary-foreground hover:bg-primary/90"
+            )}
+            size="sm"
         >
             {children}
-        </button>
+        </Toggle>
     );
 }
+
+
 function LogRow({ log }: { log: LogEntry }) {
     const [open, setOpen] = useState(false);
     return (
@@ -146,6 +131,7 @@ function LogRow({ log }: { log: LogEntry }) {
 // ===== Main =====
 export default function LogViewer() {
     const { currentUser } = useAuth();
+    const [filtersOpen, setFiltersOpen] = useState(true)
 
     // ---- State: filtros/params
     const [sources, setSources] = useState<string[]>([]);
@@ -173,6 +159,7 @@ export default function LogViewer() {
 
     // ---- Load: URL params -> cookie -> defaults
     const bootstrapDoneRef = useRef(false);
+
     useEffect(() => {
         if (bootstrapDoneRef.current) return;
         bootstrapDoneRef.current = true;
@@ -330,187 +317,295 @@ export default function LogViewer() {
         }
     }
 
+    const copyShareLink = () => {
+        const url = new URL(window.location.href);
+        const qp = url.searchParams;
+        qp.set("sources", sources.join(","));
+        qp.set("levels", levels.join(","));
+        qp.set("q", messageContains);
+        qp.set("mk", metadataKey);
+        qp.set("mv", metadataValue);
+        qp.set("from", from);
+        qp.set("to", to);
+        qp.set("limit", String(limit));
+        qp.set("skip", String(skip));
+        navigator.clipboard.writeText(url.toString());
+    };
+    const exportCsv = () => {
+        // plugue seu export real
+        console.log("export csv");
+
+
+
+    }
     return (
         <div className="p-4 space-y-4">
-            {/* Barra de título + Auto-refresh destacado */}
-            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                <h2 className="text-xl font-semibold">Logs</h2>
+            {/* row 1: título */}
+            <div className="flex items-center justify-between">
+                <h2 className="text-2xl font-semibold tracking-tight">Logs</h2>
+            </div>
 
-                <div className="rounded-lg border bg-white p-2 flex items-center gap-3">
-                    <label className="flex items-center gap-2 text-sm">
-                        <input
-                            type="checkbox"
-                            checked={autoRefresh}
-                            onChange={(e) => setAutoRefresh(e.target.checked)}
-                        />
-                        Auto-refresh
-                    </label>
-                    <div className="flex items-center gap-2 text-sm">
-                        <span>Intervalo (s):</span>
-                        <input
+            {/* row 2: toolbar */}
+            <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                    <Button
+                        variant="outline"
+                        className="gap-2"
+                        onClick={() => setFiltersOpen((s) => !s)}
+                    >
+                        <Filter className="h-4 w-4" />
+                        Filtros
+                    </Button>
+
+                    {/* Auto-refresh inline */}
+                    <div className="flex items-center rounded-md border px-2 pr-0">
+                        <div className="flex items-center gap-2">
+                            <Switch
+                                id="auto-refresh"
+                                checked={autoRefresh}
+                                onCheckedChange={setAutoRefresh}
+                            />
+                            <Label htmlFor="auto-refresh" className="text-sm">Auto-refresh</Label>
+                        </div>
+                        <Separator orientation="vertical" className="mx-2 h-6" />
+                        <Label htmlFor="interval" className="text-xs text-muted-foreground">Intervalo (s)</Label>
+                        <Input
+                            id="interval"
                             type="number"
                             min={1}
                             value={intervalSec}
                             onChange={(e) => setIntervalSec(clampedInterval(Number(e.target.value)))}
-                            className="w-20 border rounded px-2 py-1"
+                            className="w-16 border-0 shadow-none"
                         />
                     </div>
-                    <button
+                </div>
+
+                <div className="flex items-center gap-2">
+                    <Button
+                        variant="outline"
+                        className="gap-2"
                         onClick={manualRefresh}
-                        className="px-3 py-1 text-sm rounded border bg-white hover:bg-gray-50"
-                        title="Buscar agora"
+                        disabled={loading}
                     >
+                        <RefreshCw className="h-4 w-4" />
                         Atualizar
-                    </button>
+                    </Button>
+
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" className="gap-2">
+                                <MoreHorizontal className="h-4 w-4" />
+                                Ações
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-48">
+                            <DropdownMenuItem onClick={exportCsv} className="gap-2">
+                                <Download className="h-4 w-4" /> Exportar CSV
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={copyShareLink} className="gap-2">
+                                <LinkIcon className="h-4 w-4" /> Copiar link da consulta
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem onClick={clearFilters} className="gap-2">
+                                <Trash2 className="h-4 w-4" /> Limpar filtros
+                            </DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
                 </div>
             </div>
 
-            {/* Hint de última atualização */}
-            {lastUpdatedAt && (
-                <div className="text-xs text-gray-500">
-                    Última atualização: {formatDatePtBR(lastUpdatedAt.toISOString())}
-                </div>
-            )}
+            {/* filtros (card animado) */}
+            <AnimatePresence initial={false}>
+                {filtersOpen && (
+                    <motion.div
+                        key="filters"
+                        initial={{ height: 0, opacity: 0, y: -8 }}
+                        animate={{ height: "auto", opacity: 1, y: 0 }}
+                        exit={{ height: 0, opacity: 0, y: -8 }}
+                        transition={{ type: "spring", stiffness: 240, damping: 26 }}
+                    >
+                        <Card className="mt-1">
+                            <CardContent className="p-4 space-y-4">
+                                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                                    {/* Serviços */}
+                                    <div>
+                                        <div className="text-xs font-medium text-muted-foreground mb-1">Serviços</div>
+                                        <div className="flex flex-wrap gap-2">
+                                            {sourceOptions.map((s) => (
+                                                <Pill
+                                                    key={s}
+                                                    pressed={sources.includes(s)}
+                                                    onPressedChange={() => toggleSource(s)}
+                                                >
+                                                    {s}
+                                                </Pill>
+                                            ))}
+                                        </div>
+                                    </div>
 
-            {/* Filtros */}
-            <div className="rounded-lg border p-3 bg-white">
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-                    {/* Serviços */}
-                    <div>
-                        <div className="text-xs font-medium text-gray-600 mb-1">Serviços</div>
-                        <div className="flex flex-wrap gap-2">
-                            {sourceOptions.map(s => (
-                                <Pill key={s} active={sources.includes(s)} onClick={() => toggleSource(s)}>{s}</Pill>
-                            ))}
-                        </div>
-                    </div>
+                                    {/* Níveis */}
+                                    <div>
+                                        <div className="text-xs font-medium text-muted-foreground mb-1">Níveis</div>
+                                        <div className="flex flex-wrap gap-2">
+                                            {LEVEL_OPTIONS.map((l) => (
+                                                <Pill
+                                                    key={l}
+                                                    pressed={levels.includes(l)}
+                                                    onPressedChange={() => toggleLevel(l)}
+                                                >
+                                                    {l}
+                                                </Pill>
+                                            ))}
+                                        </div>
+                                    </div>
 
-                    {/* Níveis */}
-                    <div>
-                        <div className="text-xs font-medium text-gray-600 mb-1">Níveis</div>
-                        <div className="flex flex-wrap gap-2">
-                            {LEVEL_OPTIONS.map(l => (
-                                <Pill key={l} active={levels.includes(l)} onClick={() => toggleLevel(l)}>{l}</Pill>
-                            ))}
-                        </div>
-                    </div>
+                                    {/* Contém na mensagem */}
+                                    <div>
+                                        <div className="text-xs font-medium text-muted-foreground mb-1">Contém na mensagem</div>
+                                        <Input
+                                            placeholder="ex.: usuário, e-mail, timeout…"
+                                            value={messageContains}
+                                            onChange={(e) => { setMessageContains(e.target.value); setSkip(0); }}
+                                        />
+                                    </div>
 
-                    {/* Texto na mensagem */}
-                    <div>
-                        <div className="text-xs font-medium text-gray-600 mb-1">Contém na mensagem</div>
-                        <input
-                            value={messageContains}
-                            onChange={(e) => { setMessageContains(e.target.value); setSkip(0); }}
-                            placeholder="ex.: usuário, e-mail, timeout..."
-                            className="w-full border rounded px-3 py-2"
-                        />
-                    </div>
+                                    {/* Metadata */}
+                                    <div className="md:col-span-2">
+                                        <div className="text-xs font-medium text-muted-foreground mb-1">Metadata (chave / valor)</div>
+                                        <div className="flex gap-2">
+                                            <Input
+                                                placeholder="ex.: UserId, Found, To"
+                                                value={metadataKey}
+                                                onChange={(e) => { setMetadataKey(e.target.value); setSkip(0); }}
+                                            />
+                                            <Input
+                                                placeholder="ex.: true, 123, mujapira@gmail.com"
+                                                value={metadataValue}
+                                                onChange={(e) => { setMetadataValue(e.target.value); setSkip(0); }}
+                                            />
+                                        </div>
+                                    </div>
 
-                    {/* Metadata */}
-                    <div className="md:col-span-2">
-                        <div className="text-xs font-medium text-gray-600 mb-1">Metadata (chave / valor)</div>
-                        <div className="flex gap-2">
-                            <input
-                                value={metadataKey}
-                                onChange={(e) => { setMetadataKey(e.target.value); setSkip(0); }}
-                                placeholder="ex.: UserId, Found, To"
-                                className="w-1/2 border rounded px-3 py-2"
-                            />
-                            <input
-                                value={metadataValue}
-                                onChange={(e) => { setMetadataValue(e.target.value); setSkip(0); }}
-                                placeholder="ex.: true, 123, mujapira@gmail.com"
-                                className="w-1/2 border rounded px-3 py-2"
-                            />
-                        </div>
-                    </div>
+                                    {/* Datas */}
+                                    <div className="flex gap-2">
+                                        <div className="flex-1">
+                                            <div className="text-xs font-medium text-muted-foreground mb-1">De</div>
+                                            <Input
+                                                type="datetime-local"
+                                                value={from}
+                                                onChange={(e) => { setFrom(e.target.value); setSkip(0); }}
+                                            />
+                                        </div>
+                                        <div className="flex-1">
+                                            <div className="text-xs font-medium text-muted-foreground mb-1">Até</div>
+                                            <Input
+                                                type="datetime-local"
+                                                value={to}
+                                                onChange={(e) => { setTo(e.target.value); setSkip(0); }}
+                                            />
+                                        </div>
+                                    </div>
 
-                    {/* Datas */}
-                    <div className="flex gap-2">
-                        <div className="flex-1">
-                            <div className="text-xs font-medium text-gray-600 mb-1">De</div>
-                            <input
-                                type="datetime-local"
-                                value={from}
-                                onChange={(e) => { setFrom(e.target.value); setSkip(0); }}
-                                className="w-full border rounded px-3 py-2"
-                            />
-                        </div>
-                        <div className="flex-1">
-                            <div className="text-xs font-medium text-gray-600 mb-1">Até</div>
-                            <input
-                                type="datetime-local"
-                                value={to}
-                                onChange={(e) => { setTo(e.target.value); setSkip(0); }}
-                                className="w-full border rounded px-3 py-2"
-                            />
-                        </div>
-                    </div>
+                                    {/* Itens por página */}
+                                    <div>
+                                        <div className="text-xs font-medium text-muted-foreground mb-1">Itens por página</div>
+                                        <Select
+                                            value={String(limit)}
+                                            onValueChange={(v) => { setLimit(Number(v)); setSkip(0); }}
+                                        >
+                                            <SelectTrigger className="w-[160px]">
+                                                <SelectValue placeholder="Selecionar" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {[25, 50, 100, 200, 500].map((n) => (
+                                                    <SelectItem key={n} value={String(n)}>{n}</SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                </div>
 
-                    {/* Itens por página */}
-                    <div>
-                        <div className="text-xs font-medium text-gray-600 mb-1">Itens por página</div>
-                        <select
-                            value={limit}
-                            onChange={(e) => { setLimit(Number(e.target.value)); setSkip(0); }}
-                            className="border rounded px-3 py-2"
-                        >
-                            {[25, 50, 100, 200, 500].map(n => <option key={n} value={n}>{n}</option>)}
-                        </select>
-                    </div>
-                </div>
+                                <Separator />
+                                <div className="flex gap-2">
+                                    <Button variant="outline" size="sm" onClick={clearFilters}>
+                                        Limpar filtros
+                                    </Button>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    </motion.div>
+                )}
+            </AnimatePresence>
 
-                <div className="mt-3 flex gap-2">
-                    <button onClick={clearFilters} className="px-3 py-1 rounded border bg-white hover:bg-gray-50 text-sm">
-                        Limpar filtros
-                    </button>
-                </div>
-            </div>
-
-            {/* Tabela */}
-            <div className="rounded-lg border overflow-hidden">
+            {/* row 3: tabela */}
+            <Card className="overflow-hidden">
                 <div className="max-h-[70vh] overflow-auto">
-                    <table className="min-w-full border-collapse">
-                        <thead className="sticky top-0 z-10">
-                            <tr className="bg-gray-100">
-                                <th className="border px-2 py-1 text-left w-[180px]">Timestamp</th>
-                                <th className="border px-2 py-1 text-left w-[140px]">Source</th>
-                                <th className="border px-2 py-1 text-left w-[100px]">Level</th>
-                                <th className="border px-2 py-1 text-left">Message</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {error && <tr><td colSpan={4} className="border px-3 py-4 text-red-600">{error}</td></tr>}
-                            {loading && !logs.length && <tr><td colSpan={4} className="border px-3 py-4 text-gray-500">Carregando...</td></tr>}
-                            {!loading && logs.length === 0 && !error && (
-                                <tr><td colSpan={4} className="border px-3 py-6 text-gray-500 text-center">Nenhum log encontrado.</td></tr>
+                    <Table>
+                        <TableHeader className="sticky top-0 z-10 bg-muted">
+                            <TableRow>
+                                <TableHead className="w-[180px]">Timestamp</TableHead>
+                                <TableHead className="w-[140px]">Source</TableHead>
+                                <TableHead className="w-[100px]">Level</TableHead>
+                                <TableHead>Message</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {error && (
+                                <TableRow>
+                                    <TableCell colSpan={4} className="text-destructive">
+                                        {error}
+                                    </TableCell>
+                                </TableRow>
                             )}
-                            {logs.map((log) => <LogRow key={log.id || `${log.timestamp}-${log.source}-${log.message}`} log={log} />)}
-                        </tbody>
-                    </table>
+                            {loading && !logs.length && (
+                                <TableRow>
+                                    <TableCell colSpan={4} className="text-muted-foreground">
+                                        Carregando…
+                                    </TableCell>
+                                </TableRow>
+                            )}
+                            {!loading && logs.length === 0 && !error && (
+                                <TableRow>
+                                    <TableCell colSpan={4} className="text-center text-muted-foreground py-6">
+                                        Nenhum log encontrado.
+                                    </TableCell>
+                                </TableRow>
+                            )}
+                            {logs.map((log) => (
+                                <LogRow key={log.id || `${log.timestamp}-${log.source}-${log.message}`} log={log} />
+                            ))}
+                        </TableBody>
+                    </Table>
                 </div>
 
-                {/* Paginação */}
-                <div className="p-2 flex items-center justify-between bg-white">
-                    <div className="text-sm text-gray-600">Exibindo {logs.length} registros • skip {skip}</div>
-                    <div className="space-x-2">
-                        <button
-                            onClick={() => setSkip(s => Math.max(s - limit, 0))}
-                            className="px-3 py-1 bg-gray-100 hover:bg-gray-200 rounded border text-sm"
+                <div className="p-2 flex items-center justify-between">
+                    <div className="text-sm text-muted-foreground">
+                        Exibindo {logs.length} registros • skip {skip}
+                    </div>
+                    <div className="flex gap-2">
+                        <Button
+                            variant="secondary"
+                            size="sm"
+                            onClick={() => setSkip((s) => Math.max(s - limit, 0))}
                             disabled={skip <= 0 || loading}
+                            className="gap-1"
                         >
+                            <ChevronLeft className="h-4 w-4" />
                             Anterior
-                        </button>
-                        <button
-                            onClick={() => setSkip(s => s + limit)}
-                            className="px-3 py-1 bg-gray-100 hover:bg-gray-200 rounded border text-sm"
+                        </Button>
+                        <Button
+                            variant="secondary"
+                            size="sm"
+                            onClick={() => setSkip((s) => s + limit)}
                             disabled={loading || logs.length < limit}
+                            className="gap-1"
                         >
                             Próxima
-                        </button>
+                            <ChevronRight className="h-4 w-4" />
+                        </Button>
                     </div>
                 </div>
-            </div>
+            </Card>
         </div>
     );
 }

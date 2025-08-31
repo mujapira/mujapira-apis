@@ -20,7 +20,6 @@ import {
     TabsContent,
 } from "@/components/ui/tabs";
 import { useAuth } from "@/contexts/auth/auth-context";
-import { apiGateway } from "@/lib/axios";
 
 type Tab = "login" | "register";
 
