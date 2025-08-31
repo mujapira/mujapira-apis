@@ -21,10 +21,14 @@ import { toast } from "sonner";
 import { useAuth } from "@/contexts/auth/auth-context";
 import { compressImageFile } from "@/lib/image-compress";
 
-// ---- validação (zod) ----
+const isBrowserFile = (v: unknown): v is File =>
+  typeof window !== "undefined" &&
+  typeof (globalThis as any).File !== "undefined" &&
+  v instanceof (globalThis as any).File;
+
 const fileSchema = z
-    .instanceof(File)
-    .refine((f) => f.type.startsWith("image/"), "Apenas imagens são permitidas")
+    .custom<File>(isBrowserFile, { message: "Arquivo inválido" })
+    .refine((f) => f.type?.startsWith("image/"), "Apenas imagens são permitidas")
     .refine((f) => f.size <= 5 * 1024 * 1024, "Cada imagem deve ter no máximo 5MB");
 
 const schema = z.object({
